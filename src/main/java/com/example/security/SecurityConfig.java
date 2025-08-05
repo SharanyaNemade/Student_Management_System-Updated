@@ -2,51 +2,50 @@ package com.example.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.AbstractSecurityBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.User.UserBuilder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
 
+    // Password encoder bean using BCrypt
     @Bean
-    public UserDetailsService userDetailsService() {
-        // Simple in‑memory admin account
-        UserDetails admin = User.withDefaultPasswordEncoder()
-                .username("admin")
-                .password("admin123")
-                .roles("ADMIN")
-                .build();
-        
-        
-        UserDetails user = User.withDefaultPasswordEncoder()
-        		.username("user")
-        		.password("user123")
-        		.roles("USER")
-        		.build();
-        
-        return new InMemoryUserDetailsManager(admin);
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
- 
+    // In-memory user details service with BCrypt-encoded passwords
+    @Bean
+    public UserDetailsService userDetailsService(PasswordEncoder encoder) {
+        UserDetails admin = User.withUsername("admin")
+                .password(encoder.encode("admin123"))
+                .roles("ADMIN")
+                .build();
 
-	@Bean
+        UserDetails user = User.withUsername("user")
+                .password(encoder.encode("user123"))
+                .roles("USER")
+                .build();
+
+        return new InMemoryUserDetailsManager(admin, user);
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                // Public URLs
                 .requestMatchers("/", "/students", "/swagger-ui/**", "/v3/api-docs/**", "/error").permitAll()
-                // Everything else needs login
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
-                .loginPage("/login") // custom login endpoint (will show default page if no login.html)
+                .loginPage("/login")
+                .defaultSuccessUrl("/students", true) // redirect after login
                 .permitAll()
             )
             .logout(logout -> logout.permitAll());
